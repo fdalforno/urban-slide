@@ -1,0 +1,204 @@
+<!doctype html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+	<title>Urban Monitoring</title>
+
+	<link rel="stylesheet" href="dist/reset.css">
+	<link rel="stylesheet" href="dist/reveal.css">
+	<link rel="stylesheet" href="dist/theme/black.css">
+
+	<!-- Theme used for syntax highlighted code -->
+	<link rel="stylesheet" href="plugin/highlight/monokai.css">
+
+	<style >
+		.slide_left{
+			text-align: left;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="reveal">
+		<div class="slides">
+			<section data-background-color="white">
+				<h1>
+					Urban monitoring
+				</h1>
+				<img src="./images/Verona-FabLab-logo.png">
+			</section>
+			<section>
+				<h2>Obiettivi serata</h2>
+				<ul>
+					<li class="fragment fade-up">presentazione del progetto</li>
+					<li class="fragment fade-up">analisi del problema con varie soluzioni</li>
+					<li class="fragment fade-up">presentazione soluzione scelta</li>
+					<li class="fragment fade-up">prossime idee sul progetto</li>
+				</ul>
+			</section>
+			<section>
+				<h2>Presentazione del progetto</h2>
+				<div class="r-stack">
+					<img class="fragment" data-fragment-index="0" src="./images/traffic-tracker.gif">
+					<img class="fragment" data-fragment-index="1" src="./images/vid03.webp">
+					<img class="fragment" data-fragment-index="2" src="./images/vid05.webp">
+				</div>
+			</section>
+			<section>
+				<section>
+					<h2>Analisi del problema</h2>
+				</section>
+				<section>
+					<h2>Prima idea con la tecnica del background subtraction</h2>
+				</section>
+				<section>
+					<h3>Aprire uno stream video con opencv</h3>
+					<pre>
+							<code class="language-python" data-trim data-noescape>
+								import cv2
+								import argparse
+								
+								parser = argparse.ArgumentParser()
+								parser.add_argument('--input', type=str, help='video path', 
+								default='./data/video.mp4')
+								args = parser.parse_args()
+
+								print('Loading file {}.'.format(args.input))
+								capture = cv2.VideoCapture(args.input)
+
+								if not capture.isOpened():
+									print('Unable to open: ' + args.input)
+									exit(0)
+								
+								while True:
+									ret, frame = capture.read()
+									if frame is None:
+										break
+									
+									cv2.imshow("tracker output", frame)
+								
+									key = cv2.waitKey(1) & 0xFF
+									if key == ord("q"):
+										break
+								
+								capture.release()
+								cv2.destroyAllWindows()
+
+							</code>
+						</pre>
+				</section>
+				<section>
+					<h3>Frame differencing</h3>
+					<a href="https://debuggercafe.com/moving-object-detection-using-frame-differencing-with-opencv/">
+						<img src="./images/frame73.jpg">
+					</a>
+					<aside class="notes">
+						Questo sistema funziona abbanstanza bene, anche su dispositivi con poca potenza di calcolo.
+						Il problema è rappresentato dagli oggetti vicini che potrebbero esser visti come un solo corpo
+						unico
+						In caso di neve o vento o bassa illuminazione potremmo aver problemi
+
+						per implementazioni più serie
+						https://learnopencv.com/background-subtraction-with-opencv-and-bgs-libraries/
+
+
+					</aside>
+				</section>
+				<section>
+					<h2>Seconda idea sfruttando il deep learning</h2>
+				</section>
+				<section>
+					<h3>Object detection</h3>
+					<a href="https://colab.research.google.com/drive/1G_gTwqSPDSGdnW0rz1KSHQJo58e0cTa2">
+						<img src="./images/detection.png">
+					</a>
+				</section>
+				<section data-background-image="./images/tracking.jpg">
+					<h3>Object tracking</h3>
+					<aside class="notes">
+						Una volta che abbiamo scovato gli oggetti che ci interessano dobbiamo
+						riuscire a tracciare i loro spostamenti il problema può sembrare banale ma ci troviamo di fronte
+						ad una serie di ostacoli:
+
+						* il sistema di detect a monte può creare una serie di falsi positivi oppure non rilevare proprio l'oggetto
+						* gli oggetto possono per un certo lasso di tempo essere nascosti da altri e ricompare improvvisamente, bisogna ricondurre esattamente gli oggetti di partenza
+						* gli sfondi molto articolati potrebbero trarre in inganno il sistema di tracking
+						* gli oggetti da tracciare nel video probabilmente avranno scalature molto diverse tra loro
+						* gli oggetto molto veloci potrebbero causare problemi nella fase di tracciatura
+						
+						https://cv-tricks.com/object-tracking/quick-guide-mdnet-goturn-rolo/
+					</aside>
+				</section>
+			</section>
+			<section>
+				<section>
+					<h3>Soluzione scelta</h3>
+				</section>
+				<section>
+					<h3>Deep learning con tensorflow</h3>
+					<div class="slide_left">
+						<p>pro:</p>
+						<ul>
+							<li>Buoni risultati</li>
+							<li>Possibilità di utilizzare il transfer learning</li>
+						</ul>
+
+						<p>contro:</p>
+						<ul>
+							<li>Complessità computazionale</li>
+							<li>Difficoltà di debug in caso di problemi</li>
+						</ul>
+					</div>
+					<aside class="notes">
+						* partendo da dataset molto grandi possiamo aspettarci buoni risultati in quasi tutte le situazioni
+						* possibilità di specializzarci sul nostro problema tramite il transfer learning (dopo aver costruito i nostri casi)
+
+						* Quantizzazione (https://www.youtube.com/watch?v=4iq-d2AmfRU&ab_channel=TensorFlow)
+						* Esistono tecniche per effettuare l'analisi della rete ma sono un po complicate
+					</aside>
+				</section>
+				<section>
+					<h3>Tracking</h3>
+
+					<aside class="notes">
+						al momento ci stiamo concentrando sulla parte di detection perciò al momento il sistema di tracking
+						usa un algoritmo di abbastanza semplice (centroidi), anche per non inserire troppe dipendenze al progetto.
+
+						il sistema è molto veloce e lavora abbastanza bene, assumiamo di non avere grossi problemi di occlusioni 
+						ma questo sarà sicuramente un argomento su cui lavorare.
+
+						va considerata la potenza computazionale limitata del raspberry
+					</aside>
+				</section>
+			</section>
+			<section>
+				<h2>Miglioramenti e idee</h2>
+				<ul>
+					<li>Miglioramento del sistema di detection</li>
+					<li>Cambio del sistema di tracking</li>
+				</ul>
+			</section>
+		</div>
+	</div>
+
+	<script src="dist/reveal.js"></script>
+	<script src="plugin/notes/notes.js"></script>
+	<script src="plugin/markdown/markdown.js"></script>
+	<script src="plugin/highlight/highlight.js"></script>
+	<script>
+		// More info about initialization & config:
+		// - https://revealjs.com/initialization/
+		// - https://revealjs.com/config/
+		Reveal.initialize({
+			hash: true,
+
+			// Learn about plugins: https://revealjs.com/plugins/
+			plugins: [RevealMarkdown, RevealHighlight, RevealNotes]
+		});
+	</script>
+</body>
+
+</html>
